@@ -79,31 +79,56 @@ bool gameLogic(float deltaTime)
 	renderer.updateWindowMetrics(w, h);
 #pragma endregion
 
+#pragma region mouse position
+
+	glm::vec2 mousePos = platform::getRelMousePosition();
+	glm::vec2 screenCenter(w / 2.0f, h / 2.0f);
+	glm::vec2 mouseDirection = mousePos - screenCenter;
+
+	glm::vec2 normalMouseDirection = mouseDirection / screenCenter;
+
+#pragma endregion
+
 #pragma region camera movement
 
 	float cameraSpeed = deltaTime * 200;
+	BOOL mouseMovement = false;
 
 	glm::vec2 move = {};
+
+	if (normalMouseDirection.x >= 0.65f || normalMouseDirection.x <= -0.65f) {
+		move.x = 1;
+		mouseMovement = true;
+	}
+
+	if (normalMouseDirection.y >= 0.65f || normalMouseDirection.y <= -0.65f) {
+		move.y = 1;
+		mouseMovement = true;
+	}
 
 	if (platform::isButtonHeld(platform::Button::W) ||
 		platform::isButtonHeld(platform::Button::Up))
 	{
 		move.y = -1;
+		mouseMovement = false;
 	}
 	if (platform::isButtonHeld(platform::Button::S) ||
 		platform::isButtonHeld(platform::Button::Down))
 	{
 		move.y = 1;
+		mouseMovement = false;
 	}
 	if (platform::isButtonHeld(platform::Button::A) ||
 		platform::isButtonHeld(platform::Button::Left))
 	{
 		move.x = -1;
+		mouseMovement = false;
 	}
 	if (platform::isButtonHeld(platform::Button::D) ||
 		platform::isButtonHeld(platform::Button::Right))
 	{
 		move.x = 1;
+		mouseMovement = false;
 	}
 	if (platform::isButtonHeld(platform::Button::Z))
 	{
@@ -142,6 +167,10 @@ bool gameLogic(float deltaTime)
 	{
 		move = glm::normalize(move);
 		move *= cameraSpeed;
+		if (mouseMovement)
+		{
+			move *= normalMouseDirection;
+		}
 		gameData.cameraPos += move;
 	}
 
@@ -160,22 +189,39 @@ bool gameLogic(float deltaTime)
 #pragma endregion
 	
 #pragma region render bodies
-	glm::vec2 shipCoordinate{ 100, 100 };
+	constexpr float shipSize = 100.0f;
+	//glm::vec2 shipCoordinate{ 100, 100 };
 	if (shipPos.x == 0 && shipPos.y == 0)
 	{
-		shipPos = gameData.cameraPos + shipCoordinate;
+		shipPos = gameData.cameraPos;
 	}
-	renderer.renderRectangle({ shipPos, 100, 100 }, spaceShipTexture);
+	renderer.renderRectangle({ shipPos, shipSize, shipSize}, spaceShipTexture);
+	renderer.renderRectangle({ gameData.cameraPos, shipSize, shipSize}, spaceShipTexture);
 
 #pragma endregion
 
-#pragma region mouse position
-
-	auto mousePos = platform::getRelMousePosition();
-
-#pragma endregion
+#pragma region interact with bodies
 
 	
+
+	BOOL openMenu = false;
+	glm::vec2 realMousePos;
+	if (true/*platform::isLMouseReleased()*/)
+	{
+		// TODO: mouse position is not correct
+		realMousePos = gameData.cameraPos + mouseDirection * renderer.currentCamera.zoom;
+		//BOOL isInteracting = mousePos.x >= shipPos.x && mousePos.x <= shipPos.x + shipSize;
+		if (realMousePos.x >= shipPos.x && realMousePos.x <= shipPos.x + shipSize)
+		{
+			openMenu = true;
+		}
+		else
+		{
+			openMenu = false;
+		}
+	}
+
+#pragma endregion
 	
 	//renderer.renderRectangle({gameData.playerPos, 100, 100 }, spaceShipTexture);
 
@@ -189,11 +235,22 @@ bool gameLogic(float deltaTime)
 	//renderer.flush();
 
 	//ImGui::ShowDemoWindow();
-	ImGui::Begin("Test Imgui");
+	if (true)
+	{
+		ImGui::Begin("Test Imgui");
 
-	ImGui::DragFloat2("Zoom Level", &renderer.currentCamera.zoom);
+		ImGui::DragFloat2("Zoom Level", &renderer.currentCamera.zoom);
+		ImGui::DragFloat2("Camera Position", &renderer.currentCamera.position.x);
+		ImGui::DragFloat2("Normal Mouse Direction", &(float)normalMouseDirection.x);
+		ImGui::DragFloat2("Mouse Position", &(float)mouseDirection.x);
+		ImGui::DragFloat2("Real Mouse Position", &(float)realMousePos.x);
+		ImGui::DragFloat2("Ship Position", &(float)shipPos.x);
+		ImGui::End();
+	}
+	//ImGui::DragFloat2("Ship Size", &(float)shipPos.x);
+	//ImGui::DragFloat2("Mouse Direction Y", &(float)mouseDirection.y);
 
-	ImGui::End();
+	
 
 	return true;
 #pragma endregion
