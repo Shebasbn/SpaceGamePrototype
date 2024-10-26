@@ -12,22 +12,54 @@
 #include <platformTools.h>
 #include <tileRenderer.h>
 
+struct Camera {
+	glm::vec2 cameraPos = { 0,0 };
+}camera;
+
 struct GameData
 {
-	//glm::vec2 playerPos = {100,100};
-	glm::vec2 cameraPos = {100,100};
+	glm::vec2 cameraPos = { 0,0 };
 
 }gameData;
 
+struct Body
+{
+	size_t ID;
+	glm::vec2 position;
+	float size;
+	gl2d::Texture texture;
+	std::string name;
+	std::string descritpion;
+};
+
+glm::vec2 setBodyCoordinates(int x, int y) {
+	return gameData.cameraPos + glm::vec2((float)x, (float)y);
+}
+
 gl2d::Renderer2D renderer;
 
-constexpr int BACKGROUND_COUNT = 3;
+constexpr int BACKGROUND_COUNT = 1;
+constexpr int BODY_COUNT = 2;
 
-gl2d::Texture spaceShipTexture;
-glm::vec2 shipPos{};
+//gl2d::Texture bodyTextures[BODY_COUNT];
+Body bodies[BODY_COUNT];
+
+//gl2d::Texture spaceShipTexture;
+//glm::vec2 shipPos{};
+
+//enum BODIES
+//{
+//	NO_BODY=-1, 
+//};
+BOOL openBodyMenu;
+int bodyMenuID = -1;
 
 gl2d::Texture backgroundTexture[BACKGROUND_COUNT];
 TileRenderer tileRenderer[BACKGROUND_COUNT];
+
+//gl2d::Texture terranPlanetTexture;
+//glm::vec2 terranPos;
+//constexpr float terranSize = 48 * 2;
 
 bool initGame()
 {
@@ -35,26 +67,51 @@ bool initGame()
 	gl2d::init();
 	renderer.create();
 
-	spaceShipTexture.loadFromFile(RESOURCES_PATH "/spaceShip/ships/green.png", true);
-	backgroundTexture[0].loadFromFile(RESOURCES_PATH "/background1.png", true);
-	backgroundTexture[1].loadFromFile(RESOURCES_PATH "/background2.png", true);
-	backgroundTexture[2].loadFromFile(RESOURCES_PATH "/background3.png", true);
-	//backgroundTexture[3].loadFromFile(RESOURCES_PATH "/background4.png", true);
-
-	tileRenderer[0].texture = backgroundTexture[0];
-	tileRenderer[1].texture = backgroundTexture[1];
-	tileRenderer[2].texture = backgroundTexture[2];
-	//tileRenderer[3].texture = backgroundTexture[3];
-
-	tileRenderer[0].paralaxStrength = 0;
-	tileRenderer[1].paralaxStrength = 0.5f;
-	tileRenderer[2].paralaxStrength = 0.75f;
-
-	renderer.currentCamera.zoom = 2.0f;
-	
-
 	//loading the saved data. Loading an entire structure like this makes savind game data very easy.
 	platform::readEntireFile(RESOURCES_PATH "gameData.data", &gameData, sizeof(GameData));
+
+#pragma region init bodies
+	
+	for (size_t i = 0; i < BODY_COUNT; i++) {
+		bodies[i].ID = i;
+	}
+
+	bodies[0] = { 0, setBodyCoordinates(800, 400), 48 * 2};
+	bodies[1] = { 1, setBodyCoordinates(-400, 200), 48 * 2 };
+
+#pragma region
+
+#pragma region load textures
+	
+	
+	// Background tiles
+	backgroundTexture[0].loadFromFile(RESOURCES_PATH "/Backgrounds/SpaceBackground.png", true);
+	tileRenderer[0].texture = backgroundTexture[0];
+
+	// System Bodies
+	bodies[0].texture.loadFromFile(RESOURCES_PATH "/Planets/Terran.png", true);
+	bodies[1].texture.loadFromFile(RESOURCES_PATH "/Planets/Lava.png", true);
+
+#pragma endregion
+
+	/*Body ship{}*/
+
+
+	/*backgroundTexture[0].loadFromFile(RESOURCES_PATH "/background1.png", true);
+	backgroundTexture[1].loadFromFile(RESOURCES_PATH "/background2.png", true);
+	backgroundTexture[2].loadFromFile(RESOURCES_PATH "/background3.png", true);*/
+	//backgroundTexture[3].loadFromFile(RESOURCES_PATH "/background4.png", true);
+
+	/*tileRenderer[0].texture = backgroundTexture[0];
+	tileRenderer[1].texture = backgroundTexture[1];
+	tileRenderer[2].texture = backgroundTexture[2];*/
+	//tileRenderer[3].texture = backgroundTexture[3];
+
+	/*tileRenderer[0].paralaxStrength = 0;
+	tileRenderer[1].paralaxStrength = 0.5f;
+	tileRenderer[2].paralaxStrength = 0.75f;*/
+
+	renderer.currentCamera.zoom = 2.0f;
 
 	return true;
 }
@@ -77,6 +134,9 @@ bool gameLogic(float deltaTime)
 	glClear(GL_COLOR_BUFFER_BIT); //clear screen
 
 	renderer.updateWindowMetrics(w, h);
+
+	//gameData.cameraPos++;
+
 #pragma endregion
 
 #pragma region mouse position
@@ -174,7 +234,7 @@ bool gameLogic(float deltaTime)
 		gameData.cameraPos += move;
 	}
 
-	renderer.currentCamera.follow(gameData.cameraPos, cameraSpeed, 10, 10, w, h);
+	renderer.currentCamera.follow(gameData.cameraPos, cameraSpeed, 0, 0, w, h);
 #pragma endregion
 
 #pragma region render background
@@ -189,37 +249,64 @@ bool gameLogic(float deltaTime)
 #pragma endregion
 	
 #pragma region render bodies
-	constexpr float shipSize = 100.0f;
-	//glm::vec2 shipCoordinate{ 100, 100 };
-	if (shipPos.x == 0 && shipPos.y == 0)
-	{
-		shipPos = gameData.cameraPos;
-	}
-	renderer.renderRectangle({ shipPos, shipSize, shipSize}, spaceShipTexture);
-	renderer.renderRectangle({ gameData.cameraPos, shipSize, shipSize}, spaceShipTexture);
 
+	for (int i = 0; i < BODY_COUNT; i++)
+	{
+		renderer.renderRectangle({ bodies[i].position, bodies[i].size, bodies[i].size }, bodies[i].texture);
+	}
+	
 #pragma endregion
 
 #pragma region interact with bodies
-
-	
-
-	BOOL openMenu = false;
 	glm::vec2 realMousePos;
-	if (true/*platform::isLMouseReleased()*/)
+	if (platform::isLMouseReleased())
 	{
 		// TODO: mouse position is not correct
-		realMousePos = gameData.cameraPos + mouseDirection * renderer.currentCamera.zoom;
-		//BOOL isInteracting = mousePos.x >= shipPos.x && mousePos.x <= shipPos.x + shipSize;
-		if (realMousePos.x >= shipPos.x && realMousePos.x <= shipPos.x + shipSize)
+		//glm::vec2 cameraTopLeft = gameData.cameraPos - screenCenter;
+		//glm::vec2 cameraBottomeRight = gameData.cameraPos + screenCenter;
+		/*float cameraWidth = (gameData.cameraPos.x - cameraTopLeft.x) * 2;
+		float cameraHeight = (gameData.cameraPos.x - cameraTopLeft.x) * 2;*/
+		realMousePos = gameData.cameraPos + (normalMouseDirection * screenCenter) / renderer.currentCamera.zoom;
+
+		for (int b = 0; b < BODY_COUNT; b++)
 		{
-			openMenu = true;
+			if (realMousePos.x >= bodies[b].position.x && 
+				realMousePos.x <= bodies[b].position.x + bodies[b].size &&
+				realMousePos.y >= bodies[b].position.y && 
+				realMousePos.y <= bodies[b].position.y + bodies[b].size)
+			{
+				openBodyMenu = true;
+				bodyMenuID = b;
+				break;
+			}
+			else
+			{
+				openBodyMenu = false;
+				bodyMenuID = -1;
+			}
 		}
-		else
+		
+
+		/*if (realMousePos.x >= shipPos.x && realMousePos.x <= shipPos.x + shipSize &&
+			realMousePos.y >= shipPos.y && realMousePos.y <= shipPos.y + shipSize)
 		{
-			openMenu = false;
+			openBodyMenu = true;
+			bodyID = 0;
 		}
+		else if (realMousePos.x >= terranPos.x && terranPos.x <= terranPos.x + terranSize &&
+			terranPos.y >= terranPos.y && realMousePos.y <= terranPos.y + terranSize)
+		{
+			openBodyMenu = true;
+			bodyID = 1;
+		}*/
+		
+
+		
 	}
+
+	/*void (glm::vec2 cameraPosition, ) {
+		
+	}*/
 
 #pragma endregion
 	
@@ -235,21 +322,44 @@ bool gameLogic(float deltaTime)
 	//renderer.flush();
 
 	//ImGui::ShowDemoWindow();
-	if (true)
-	{
-		ImGui::Begin("Test Imgui");
 
-		ImGui::DragFloat2("Zoom Level", &renderer.currentCamera.zoom);
-		ImGui::DragFloat2("Camera Position", &renderer.currentCamera.position.x);
-		ImGui::DragFloat2("Normal Mouse Direction", &(float)normalMouseDirection.x);
-		ImGui::DragFloat2("Mouse Position", &(float)mouseDirection.x);
-		ImGui::DragFloat2("Real Mouse Position", &(float)realMousePos.x);
-		ImGui::DragFloat2("Ship Position", &(float)shipPos.x);
+#pragma UI Menus
+	if (openBodyMenu)
+	{
+		std::string menuTitle;
+		std::string bodyName;
+		std::string bodyType;
+		switch (bodyMenuID)
+		{
+		case 0:
+			menuTitle = "Planet Menu";
+			bodyName = "Earth";
+			bodyType = "Terran Planet";
+			break;
+		case 1:
+			menuTitle = "Planet Menu";
+			bodyName = "Tardul";
+			bodyType = "Lava Planet";
+			break;
+		default:
+			break;
+		}
+		ImGui::Begin(menuTitle.c_str());
+		ImGui::Text(bodyName.c_str());
+		ImGui::Text(bodyType.c_str());
 		ImGui::End();
 	}
-	//ImGui::DragFloat2("Ship Size", &(float)shipPos.x);
-	//ImGui::DragFloat2("Mouse Direction Y", &(float)mouseDirection.y);
 
+	/*ImGui::Begin("Test Imgui");
+	ImGui::DragFloat2("Zoom Level", &renderer.currentCamera.zoom);
+	ImGui::DragFloat2("Renderer Camera Position", &renderer.currentCamera.position.x);
+	ImGui::DragFloat2("Camera Position", &gameData.cameraPos.x);
+	ImGui::DragFloat2("Normal Mouse Direction", &(float)normalMouseDirection.x);
+	ImGui::DragFloat2("Mouse Position", &(float)mouseDirection.x);
+	ImGui::DragFloat2("Real Mouse Position", &(float)realMousePos.x);
+	ImGui::DragFloat4("Ship Position", &(float)shipPosition.x);
+	ImGui::DragFloat2("Ship-Camera Position", &(float)glm::vec2(shipPos - gameData.cameraPos).x);
+	ImGui::End();*/
 	
 
 	return true;
